@@ -1,0 +1,621 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><strong>HỆ THỐNG DỰ ĐOÁN CỤM KHÁCH HÀNG</strong></title>
+
+  <!-- PapaParse (CSV) & SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#FFFFFF; --surface:#F5F7FB; --surface-2:#EAF2FF;
+      --text:#222; --muted:#6A7480; --border:#E3E8EF;
+      --blue:#1E88E5; --orange:#FF8A00; --orange-2:#D86F00;
+      --ok:#22c55e; --err:#ef4444; --warn:#f59e0b;
+      --shadow:0 10px 30px rgba(24,39,75,.06); --br:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;background:var(--bg);color:var(--text);
+      font-family:"Myriad Pro","Segoe UI",Inter,system-ui,-apple-system,Roboto,Arial,sans-serif;
+      font-weight:350;letter-spacing:.1px;
+    }
+
+    .container{max-width:1200px;margin:32px auto;padding:0 20px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .brand{
+      display:flex;align-items:center;gap:16px;
+      padding:14px 24px;border-radius:30px;
+      background:linear-gradient(135deg,rgba(208,226,255,.65),rgba(237,243,255,.9));
+      box-shadow:0 10px 30px rgba(30,136,229,.12);
+      border:1px solid rgba(143,180,247,.35);
+    }
+    .logo{
+      width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid var(--border);
+      display:flex;align-items:center;justify-content:center;overflow:hidden;
+      box-shadow:0 8px 24px rgba(30,136,229,.25);
+    }
+    .logo img{width:100%;height:100%;object-fit:contain;display:block}
+    h1{margin:0;font-weight:300}
+    h1.brand-title{text-transform:uppercase;font-weight:700;}
+
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+    .tab-btn{
+      padding:10px 14px;border-radius:999px;border:1px solid var(--border);
+      background:#fff;cursor:pointer;font-weight:500;color:#22324D;transition:all .2s ease;
+    }
+    .tab-btn:hover{border-color:#d1d8e2}
+    .tab-btn.active{
+      border-color:transparent;
+      background:linear-gradient(180deg,var(--orange),var(--orange-2));
+      color:#fff;box-shadow:0 6px 18px rgba(255,138,0,.35);
+    }
+
+    .panel{background:#fff;border:1px solid var(--border);border-radius:var(--br);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+    .panel.soft{background:var(--surface)} .panel.accent{background:var(--surface-2)}
+
+    .grid{display:grid;gap:14px}
+    @media(min-width:920px){ .grid.cols-2{grid-template-columns:1fr 1fr} }
+
+    label{display:block;margin-bottom:6px;color:#273142;font-weight:400}
+    input, textarea, select{
+      width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);
+      background:#fff;color:var(--text);outline:none;font-weight:350;
+    }
+    textarea{min-height:140px;resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:13px}
+
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      background:linear-gradient(180deg,var(--blue),#1669c2);
+      color:white;border:0;border-radius:12px;padding:12px 16px;cursor:pointer;
+      font-weight:600; box-shadow:0 8px 22px rgba(30,136,229,.35);
+    }
+    .btn.secondary{
+      background:linear-gradient(180deg,var(--orange),var(--orange-2));
+      box-shadow:0 8px 22px rgba(255,138,0,.35);
+    }
+    .btn.ghost{background:#fff;color:#22324D;border:1px solid var(--border);box-shadow:none}
+    .btn.full{width:100%}
+
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .status{margin-top:14px;padding:12px;border-radius:12px;border:1px solid var(--border);background:#fff}
+    .status.ok{border-color:#b9f5cc;background:#f3fff6;color:#0f6b2f}
+    .status.err{border-color:#ffd1d1;background:#fff5f5;color:#9c1c1c}
+    .status.warn{border-color:#ffe0b2;background:#fff8e6;color:#8b4d00}
+
+    .progress{width:100%;height:10px;border-radius:999px;background:#eff2f7;border:1px solid var(--border);overflow:hidden}
+    .progress > span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--orange),var(--blue));transition:width .2s ease}
+
+    table{width:100%;border-collapse:collapse;margin-top:14px;background:#fff;border-radius:12px;overflow:hidden}
+    thead{background:#f7f9fc}
+    th,td{padding:12px;border-bottom:1px solid var(--border);text-align:left;font-size:14px}
+    th{font-weight:600;color:#22324D}
+
+    .drop{border:2px dashed #cfd6e4;border-radius:16px;background:#fff;padding:28px;text-align:center;color:#415164}
+    .drop.drag{border-color:var(--blue);background:linear-gradient(180deg,#fff,#f3f8ff)}
+
+    .spinner{display:none;margin-left:8px;border:3px solid #dbe3ef;border-top:3px solid #fff;border-radius:50%;width:16px;height:16px;animation:spin 1s linear infinite}
+    .spinner.show{display:inline-block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    code.inline{background:#f2f4f8;border:1px solid var(--border);border-radius:6px;padding:2px 6px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">
+          <img id="appLogo"
+               src="https://lh3.googleusercontent.com/d/1NPBpI4aCFh6TV2IG9asVzKRbDfpkRpBb"
+               alt="Logo" loading="lazy" referrerpolicy="no-referrer" />
+        </div>
+        <div>
+          <h1 class="brand-title">M&#193;Y D&#7920; &#272;O&#193;N C&#7908;M KH&#193;CH H&#192;NG</h1>
+        </div>
+      </div>
+    </header>
+
+    <div class="header-banner" aria-hidden="true"></div>
+
+    <!-- TABS -->
+    <div class="tabs">
+     <button class="tab-btn active" data-tab="single"><strong>1) Dự đoán từng khách hàng</strong></button>
+     <button class="tab-btn" data-tab="paste"><strong>2) Dán dữ liệu nhiều dòng</strong></button>
+     <button class="tab-btn" data-tab="upload"><strong>3) Tải file CSV/XLSX</strong></button>
+    </div>
+
+    <!-- TAB 1 -->
+    <section class="panel" id="tab-single">
+      <div class="grid cols-2">
+        <div>
+          <label for="age">Tuổi (<code class="inline">age</code>)</label>
+          <input id="age" type="number" step="1" value="38" />
+          <div class="hint">VD: 38</div>
+        </div>
+        <div>
+          <label for="total_debt">Tổng nợ (<code class="inline">total_debt</code>)</label>
+          <input id="total_debt" type="number" step="any" value="40000" />
+          <div class="hint">VD: 40000</div>
+        </div>
+        <div>
+          <label for="avg_amount">Tổng tiền GD TB (<code class="inline">avg_amount</code>)</label>
+          <input id="avg_amount" type="number" step="any" value="20" />
+          <div class="hint">VD: 20</div>
+        </div>
+        <div>
+          <label for="credit_score">Điểm tín dụng (<code class="inline">credit_score</code>)</label>
+          <input id="credit_score" type="number" step="1" value="720" />
+          <div class="hint">VD: 720</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <button id="btnSingle" class="btn">Dự đoán <span id="spinSingle" class="spinner"></span></button>
+      </div>
+
+      <div id="singleStatus" class="status" style="display:none"></div>
+    </section>
+
+    <!-- TAB 2 -->
+    <section class="panel soft" id="tab-paste" style="display:none">
+      <div class="hint"><strong>Thứ tự cột:</strong> age, total_debt, avg_amount, credit_score</div>
+      <label for="bulkInput" style="margin-top:10px">Dán dữ liệu (mỗi dòng 4 số, phẩy hoặc tab):</label>
+      <textarea id="bulkInput" placeholder="38,40000,20,720
+41,25000,15,690"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button id="btnBatch" class="btn">Dự đoán nhiều dòng <span id="spinBatch" class="spinner"></span></button>
+        <button id="btnDownloadPaste" class="btn secondary" disabled>Tải kết quả (CSV)</button>
+      </div>
+      <div id="batchErrors" class="status warn" style="display:none"></div>
+      <div id="batchStatus" class="status" style="display:none"></div>
+      <div id="tableWrapPaste"></div>
+    </section>
+
+    <!-- TAB 3 -->
+    <section class="panel accent" id="tab-upload" style="display:none">
+      <div class="grid cols-2">
+        <div>
+          <div id="drop" class="drop">
+            <strong>Kéo & thả</strong> file CSV/XLSX vào đây<br/>hoặc <br/>
+            <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+            <div class="hint">Tên cột gợi ý: <code class="inline">total_debt</code>, <code class="inline">avg_amount</code>, <code class="inline">credit_score</code>, <code class="inline">age</code></div>
+          </div>
+        </div>
+        <div class="panel" style="margin:0">
+          <div style="font-weight:600;margin-bottom:8px">Xác nhận cột</div>
+          <div class="grid">
+            <div><label>total_debt</label><select id="map_debt"></select></div>
+            <div><label>avg_amount</label><select id="map_avg"></select></div>
+            <div><label>credit_score</label><select id="map_score"></select></div>
+            <div><label>age</label><select id="map_age"></select></div>
+          </div>
+          <div class="hint">Tự nhận theo header. Có thể thay đổi nếu hệ thống xác định sai.</div>
+        </div>
+      </div>
+
+      <div id="fileInfo" class="status" style="display:none;margin-top:14px"></div>
+
+      <div id="previewWrap" style="display:none">
+        <div style="font-weight:600;margin:16px 0 6px">Xem trước (10 dòng đầu):</div>
+        <div id="previewTable"></div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <button id="btnPredictFile" class="btn" disabled>Bắt đầu dự đoán <span id="spinFile" class="spinner"></span></button>
+        <button id="btnDownloadFile" class="btn secondary" disabled>Tải kết quả (CSV)</button>
+      </div>
+
+      <div id="fileProgress" style="display:none;margin-top:12px">
+        <div class="progress"><span id="progressBar"></span></div>
+        <div id="progressText" class="hint" style="margin-top:6px">0%</div>
+      </div>
+
+      <div id="fileStatus" class="status" style="display:none"></div>
+      <div id="tableWrapFile"></div>
+    </section>
+  </div>
+
+  <script>
+    // Logo fallback
+    (function ensureLogo(){
+      const id = "1NPBpI4aCFh6TV2IG9asVzKRbDfpkRpBb";
+      const primary = `https://lh3.googleusercontent.com/d/${id}`;
+      const fallback = `https://drive.google.com/uc?export=view&id=${id}`;
+      const img = document.getElementById("appLogo");
+      if (!img) return;
+      let triedFallback = false;
+      img.addEventListener("error", () => {
+        if (!triedFallback) { triedFallback = true; img.src = fallback; }
+        else img.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIW2P4//8/AwAI/AL+1A9qJQAAAABJRU5ErkJggg==";
+      });
+      if (!img.src.includes("googleusercontent.com")) img.src = primary;
+    })();
+
+    // ================== CONFIG ==================
+    const API_URL = "https://jbgd438w8d.execute-api.ap-southeast-2.amazonaws.com/prod/predict";
+
+    // ================== UTIL ==================
+    const $ = (id)=>document.getElementById(id);
+    const show = (el,on=true)=>{ el.style.display = on ? "" : "none"; };
+    const setStatus = (el,msg,type)=>{ el.className="status "+(type||""); el.innerHTML=msg; show(el,true); };
+    const toNumber = (x)=>{ const n=Number(x); return Number.isFinite(n)?n:NaN; };
+    const truncate = (s,max=800)=> (s && s.length>max) ? s.slice(0,max)+" …(cắt)" : (s ?? "");
+    const safeParseJSON = (txt)=>{ try{return JSON.parse(txt);}catch{ return { _raw: txt }; } };
+    const withBOM = (csv)=> '\uFEFF' + csv;
+    const buildApiList = (age,total_debt,avg_amount,credit_score)=>[ total_debt, avg_amount, credit_score, age ];
+    const csvEscape = (v)=> `"${String(v??"").replace(/"/g,'""')}"`;
+
+    // ====== BẢN ĐỒ NHÃN -> TÊN CỤM & HÀNH ĐỘNG (theo ảnh bạn gửi) ======
+    const CLUSTER_MAP = {
+      "0_young":        { name:"Trẻ – Chi tiêu rất thấp – Nợ cao",           hint:"Tạo gói ưu đãi “chi tiêu đầu tiên”, cashback nhỏ" },
+      "0_middle_aged":  { name:"Trung niên – Chi tiêu thấp – Nợ TB",          hint:"Duy trì ưu đãi định kỳ, tăng cường chăm sóc" },
+      "0_senior":       { name:"Lớn tuổi – Chi tiêu thấp – Nợ thấp",          hint:"Giới thiệu sản phẩm tiết kiệm, bảo hiểm" },
+      "1_young":        { name:"Trẻ – Chi tiêu cao – Nợ cao",                  hint:"Tập trung giữ chân qua chương trình tích điểm, cashback" },
+      "1_middle_aged":  { name:"Trung niên – Chi tiêu cao – Nợ cao",           hint:"Ưu tiên chương trình khách hàng thân thiết" },
+      "1_senior":       { name:"Lớn tuổi – Chi tiêu cao – Nợ cao",             hint:"Giới thiệu thẻ hạng cao, ưu đãi cao cấp" },
+      "2_young":        { name:"Trẻ – Chi tiêu TB – Nợ TB",                    hint:"Đề xuất sản phẩm đầu tư an toàn, tiết kiệm sinh lời" },
+      "2_middle_aged":  { name:"Trung niên – Chi tiêu TB – Nợ TB",             hint:"Bán chéo sản phẩm tài chính" },
+      "2_senior":       { name:"Lớn tuổi – Chi tiêu TB – Nợ thấp",             hint:"Gợi ý gói bảo hiểm, tiết kiệm lãi cao" },
+      "3_young":        { name:"Trẻ – Chi tiêu thấp – Nợ TB",                  hint:"Khuyến khích chi tiêu qua gói ưu đãi, đầu tư linh hoạt" },
+      "3_middle_aged":  { name:"Trung niên – Chi tiêu TB – Nợ TB",             hint:"Giới thiệu sản phẩm đầu tư an toàn, sinh lời ổn định" },
+      "3_senior":       { name:"Lớn tuổi – Chi tiêu thấp – Nợ thấp",           hint:"Ưu đãi nhẹ, tri ân khách hàng trung niên" }
+    };
+
+    // Chuẩn hoá chuỗi để bắt key: "2_Young", "Young_2", "2-middle-aged", "Cụm 3 Senior"...
+    const _norm = (s)=> (s||"").toString().toLowerCase().replace(/\s+/g,"").replace(/-/g,"_");
+    function normalizeClusterKey(raw){
+      if (!raw) return null;
+      const s = _norm(raw);
+      // Bắt dạng có số trước: 2_young, 3_middleaged, 1_senior ...
+      let m = s.match(/(\d)[_\s]*?(young|middle[_]?aged|senior)/);
+      if (!m){
+        // Bắt dạng chữ trước số: young_2, middleaged_3 ...
+        m = s.match(/(young|middle[_]?aged|senior)[_\s]*?(\d)/);
+        if (m) m = [m[0], m[2], m[1]]; // đảo lại: [all, num, group]
+      }
+      if (!m) return null;
+      const num = m[1];
+      const grp = m[2].includes("middle") ? "middle_aged" : (m[2]==="young"?"young":"senior");
+      return `${num}_${grp}`;
+    }
+
+    // ==== Trích xuất kết quả từ API ====
+    function extractOutcome(d){
+      try{
+        let x=d;
+        if (x && typeof x.body==="string"){ try{x=JSON.parse(x.body);}catch{} }
+        if (x && x.body && typeof x.body==="object"){ x=x.body; }
+        let label = x?.prediction ?? x?.cluster ?? x?.subcluster ?? x?.label ?? x?.segment ?? x?.group ?? x?.class ?? x?.class_name;
+        const code  = x?.prediction_encoded ?? x?.code ?? x?.cluster_id ?? x?.subcluster_id;
+        let text = x?.message ?? x?.result ?? x?.output ?? label;
+        if (!text && label) text = String(label);
+        if (text && code!==undefined && !String(text).includes(code)) text += ` (mã ${code})`;
+        return { ok:true, text, label, code, raw:x };
+      }catch{}
+      return { ok:false };
+    }
+
+    function deriveByMap(labelOrText){
+      const key = normalizeClusterKey(labelOrText);
+      if (key && CLUSTER_MAP[key]) return { key, ...CLUSTER_MAP[key] };
+      return null;
+    }
+
+    // Fallback khi không match bảng: vẫn cho mô tả/hint chung
+    function fallbackDescribe({label,text,code}){
+      const value = label ?? text ?? "";
+      return {
+        key:null,
+        name: value ? `Cụm ${value}` : (code!==undefined?`Cụm #${code}`:"Cụm chưa xác định"),
+        hint:"Theo dõi thêm hành vi; thử A/B giữ chân và upsell."
+      };
+    }
+
+    let detectedPayloadIndex = 0;
+    async function callPredictionAPISmart(obj,list,debugHook){
+      const payloads = [
+        {desc:'{"data":[...]}', body:{ data: list }},
+        {desc:'{"data":{...}}', body:{ data: obj }},
+        {desc:'{...}',          body: obj}
+      ];
+      const order = detectedPayloadIndex!=null ? [detectedPayloadIndex, ...[0,1,2].filter(i=>i!==detectedPayloadIndex)] : [0,1,2];
+
+      for(const i of order){
+        const p = payloads[i];
+        try{
+          const res = await fetch(API_URL, {
+            method:"POST",
+            headers:{ "Content-Type":"application/json", "Accept":"application/json" },
+            body: JSON.stringify(p.body)
+          });
+          const ct = res.headers.get("content-type") || "";
+          const rawText = await res.text();
+          const parsed = ct.includes("application/json") ? safeParseJSON(rawText) : safeParseJSON(rawText);
+          const out = extractOutcome(parsed);
+          debugHook?.({tried:p.desc,status:res.status,ok:res.ok,contentType:ct,raw:truncate(rawText)});
+          if (res.ok && out.ok){
+            detectedPayloadIndex = i;
+
+            // Ưu tiên lấy từ label; nếu rỗng thì lấy từ message/text
+            const mapHit = deriveByMap(out.label || out.text);
+            const mapped = mapHit ?? fallbackDescribe(out);
+
+            return {
+              ok:true,
+              msg: out.text ?? (out.label ?? "Đã dự đoán"),
+              label: out.label,
+              code: out.code,
+              name: mapped.name,
+              hint: mapped.hint,
+              key: mapped.key
+            };
+          }
+        }catch(err){
+          const e = String(err);
+          debugHook?.({tried:p.desc,status:'ERR',ok:false,contentType:'',raw:e});
+          if (e.includes("Failed to fetch")) return { ok:false, msg:"Không gọi được API (khả năng CORS)." };
+        }
+      }
+      return { ok:false, msg:"API không trả kết quả nhận diện được." };
+    }
+
+    // Tabs
+    document.querySelectorAll(".tab-btn").forEach(b=>{
+      b.addEventListener("click",()=>{
+        document.querySelectorAll(".tab-btn").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active");
+        show($("tab-single"), b.dataset.tab==="single");
+        show($("tab-paste"),  b.dataset.tab==="paste");
+        show($("tab-upload"), b.dataset.tab==="upload");
+      });
+    });
+
+    // SINGLE
+    $("btnSingle").addEventListener("click", async ()=>{
+      const age          = toNumber($("age").value);
+      const total_debt   = toNumber($("total_debt").value);
+      const avg_amount   = toNumber($("avg_amount").value);
+      const credit_score = toNumber($("credit_score").value);
+      if([age,total_debt,avg_amount,credit_score].some(v=>Number.isNaN(v))){
+        setStatus($("singleStatus"), "Sai định dạng. Cần 4 số.", "err"); return;
+      }
+      $("spinSingle").classList.add("show");
+      setStatus($("singleStatus"), "Đang gọi API...", "warn");
+      const payloadObj = { age, total_debt, avg_amount, credit_score };
+      const payloadList = buildApiList(age, total_debt, avg_amount, credit_score);
+      const r = await callPredictionAPISmart(payloadObj, payloadList);
+      $("spinSingle").classList.remove("show");
+      setStatus(
+        $("singleStatus"),
+        r.ok
+          ? `✅ ${r.msg}<br><b>Tên cụm mô tả:</b> ${r.name}<br><b>Gợi ý hành động:</b> ${r.hint}`
+          : `❌ ${r.msg}`,
+        r.ok ? "ok" : "err"
+      );
+    });
+
+    // PASTE
+    let pasteCSV = "";
+    $("btnBatch").addEventListener("click", async ()=>{
+      const raw = $("bulkInput").value.trim();
+      $("tableWrapPaste").innerHTML=""; show($("batchErrors"),false); show($("batchStatus"),false);
+      $("btnDownloadPaste").disabled=true; pasteCSV="";
+      if(!raw){ setStatus($("batchStatus"), "Vui lòng nhập dữ liệu.", "warn"); return; }
+
+      const lines = raw.split(/\r?\n/); const parsed=[]; const errors=[];
+      for(let i=0;i<lines.length;i++){
+        const line=lines[i].trim(); if(!line) continue;
+        const delimiter = line.includes(",") ? "," : "\t";
+        const parts = line.split(delimiter).map(s=>s.trim());
+        if(parts.length!==4){ errors.push(`Dòng ${i+1}: cần 4 cột, nhận ${parts.length}.`); continue; }
+        const nums = parts.map(toNumber);
+        if(nums.some(v=>Number.isNaN(v))){ errors.push(`Dòng ${i+1}: có giá trị không phải số.`); continue; }
+        parsed.push(nums);
+      }
+      if(errors.length) setStatus($("batchErrors"), `<b>Lỗi định dạng:</b><br>${errors.map(e=>"- "+e).join("<br>")}`, "warn");
+      if(!parsed.length){ setStatus($("batchStatus"), "Không có dòng hợp lệ.", "warn"); return; }
+
+      $("spinBatch").classList.add("show");
+      setStatus($("batchStatus"), `Đang dự đoán cho ${parsed.length} khách hàng...`, "warn");
+      const results=[];
+      for(let i=0;i<parsed.length;i++){
+        const [ageVal,debt,avg,score] = parsed[i];
+        const payloadObj = { age: ageVal, total_debt: debt, avg_amount: avg, credit_score: score };
+        const payloadList = buildApiList(ageVal, debt, avg, score);
+        const r = await callPredictionAPISmart(payloadObj, payloadList);
+        results.push(r.ok?{msg:r.msg,name:r.name,hint:r.hint}:{msg:`Lỗi: ${r.msg}`,name:"",hint:""});
+      }
+      $("spinBatch").classList.remove("show");
+      setStatus($("batchStatus"), `✅ Xong ${parsed.length} dòng.`, "ok");
+
+      const tbl=document.createElement("table");
+      tbl.innerHTML=`<thead><tr>
+        <th>#</th><th>age</th><th>total_debt</th><th>avg_amount</th><th>credit_score</th>
+        <th>Kết quả</th><th>Tên cụm mô tả</th><th>Gợi ý hành động</th>
+      </tr></thead><tbody></tbody>`;
+      const tbody=tbl.querySelector("tbody");
+      parsed.forEach((r,i)=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${i+1}</td><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td>
+                      <td>${results[i].msg}</td><td>${results[i].name}</td><td>${results[i].hint}</td>`;
+        tbody.appendChild(tr);
+      });
+      $("tableWrapPaste").appendChild(tbl);
+
+      const header=["age","total_debt","avg_amount","credit_score","prediction","cluster_name","action_hint"];
+      pasteCSV = [header.join(",")].concat(parsed.map((r,i)=>[
+        r[0],r[1],r[2],r[3],results[i].msg,results[i].name,results[i].hint
+      ].map(csvEscape).join(","))).join("\n");
+      $("btnDownloadPaste").disabled=false;
+    });
+
+    $("btnDownloadPaste").addEventListener("click", ()=>{
+      if(!pasteCSV) return;
+      const blob = new Blob([withBOM(pasteCSV)], {type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href=url; a.download="ket_qua_du_doan.csv";
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    // UPLOAD
+    const drop = $("drop");
+    ;["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.add("drag");}));
+    ;["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,(e)=>{e.preventDefault();e.stopPropagation();drop.classList.remove("drag");}));
+    drop.addEventListener("drop",(e)=>{ const f=e.dataTransfer.files?.[0]; if(f) handleFile(f); });
+    $("fileInput").addEventListener("change", (e)=>{ const f=e.target.files?.[0]; if(f) handleFile(f); });
+
+    let fileRows = [], fileCols = [];
+    let mapped = { age:0, debt:1, avg:2, score:3 };
+
+    function normalizeName(s){ return (s||"").toString().toLowerCase().replace(/[^a-z0-9]+/g,""); }
+    function autoMapColumns(names){
+      const keyMap = {
+        debt: ["totaldebt","debt","tongno","no"],
+        avg: ["avgamount","averageamount","avg","tongtientb","tb","average"],
+        score: ["creditscore","score","diemtindung"],
+        age: ["age","tuoi"]
+      };
+      const idxOf = (cands)=>{ for(let i=0;i<names.length;i++){ const n=normalizeName(names[i]); if(cands.some(k=>n.includes(k))) return i; } return -1; };
+      const d = idxOf(keyMap.debt), a = idxOf(keyMap.avg), s = idxOf(keyMap.score), g = idxOf(keyMap.age);
+      return { age: g>=0?g:0, debt: d>=0?d:1, avg: a>=0?a:2, score: s>=0?s:3 };
+    }
+    function populateMappingSelects(names){
+      const setOpts = (sel, idx)=>{ sel.innerHTML = names.map((n,i)=>`<option value="${i}" ${i===idx?"selected":""}>${n}</option>`).join(""); };
+      setOpts($("map_debt"), mapped.debt); setOpts($("map_avg"), mapped.avg);
+      setOpts($("map_score"),mapped.score); setOpts($("map_age"), mapped.age);
+      $("map_debt").onchange=e=>mapped.debt=Number(e.target.value);
+      $("map_avg").onchange =e=>mapped.avg =Number(e.target.value);
+      $("map_score").onchange=e=>mapped.score=Number(e.target.value);
+      $("map_age").onchange =e=>mapped.age=Number(e.target.value);
+    }
+    function renderPreview(rows, names){
+      const head = `<thead><tr>${names.map(n=>`<th>${n}</th>`).join("")}</tr></thead>`;
+      const body = rows.slice(0,10).map(r=>`<tr>${r.map(c=>`<td>${c ?? ""}</td>`).join("")}</tr>`).join("");
+      $("previewTable").innerHTML = `<table>${head}<tbody>${body}</tbody></table>`;
+      show($("previewWrap"), true);
+    }
+
+    async function handleFile(file){
+      fileRows = []; fileCols = [];
+      $("tableWrapFile").innerHTML = "";
+      $("btnPredictFile").disabled = true;
+      $("btnDownloadFile").disabled = true;
+      show($("fileProgress"), false);
+      setStatus($("fileInfo"), `Đang đọc file: <b>${file.name}</b> (${Math.round(file.size/1024)} KB)`, "warn");
+
+      const ext = file.name.toLowerCase().split('.').pop();
+      try{
+        if (ext === "csv"){ await parseCSV(file); } else { await parseXLSX(file); }
+        let headerRow = fileRows[0] || [];
+        const looksLikeHeader = headerRow.some(v => isNaN(Number(v)));
+        if (looksLikeHeader){ fileCols = headerRow.map((c,i)=>(c==null||c==="")?`Cột ${i+1}`:String(c)); fileRows = fileRows.slice(1); }
+        else { fileCols = headerRow.map((_,i)=>`Cột ${i+1}`); }
+        mapped = autoMapColumns(fileCols);
+        populateMappingSelects(fileCols);
+        renderPreview(fileRows, fileCols);
+
+        setStatus($("fileInfo"), `Đã nhận được <b>${fileRows.length}</b> dòng`, "ok");
+        $("btnPredictFile").disabled = fileRows.length === 0;
+      }catch(err){
+        setStatus($("fileInfo"), `Không đọc được file: ${err.message}`, "err");
+      }
+    }
+    function parseCSV(file){
+      return new Promise((resolve,reject)=>{
+        Papa.parse(file, {
+          complete: (res)=>{ if(res?.data?.length){ fileRows = res.data.filter(r=>r && r.length); resolve(); } else reject(new Error("CSV trống")); },
+          error: reject, skipEmptyLines: true
+        });
+      });
+    }
+    function parseXLSX(file){
+      return new Promise((resolve,reject)=>{
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, {type:"array"});
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const arr = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:""});
+          if(arr && arr.length){ fileRows = arr; resolve(); } else reject(new Error("Sheet trống"));
+        };
+        reader.onerror = ()=>reject(new Error("Đọc XLSX thất bại"));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    // Predict file
+    let fileCSV = "";
+    $("btnPredictFile").addEventListener("click", async ()=>{
+      if(!fileRows.length) return;
+      show($("fileProgress"), true);
+      $("progressBar").style.width = "0%"; $("progressText").textContent = "0%";
+      setStatus($("fileStatus"), "Đang dự đoán…", "warn");
+      $("btnPredictFile").disabled = true; $("btnDownloadFile").disabled = true;
+
+      const clean = [], errors = [];
+      for(let i=0;i<fileRows.length;i++){
+        const row = fileRows[i];
+        const vals = [row[mapped.age], row[mapped.debt], row[mapped.avg], row[mapped.score]];
+        const nums = vals.map(toNumber);
+        if(nums.some(v=>Number.isNaN(v))){ errors.push(`Dòng ${i+1}: cột ánh xạ có giá trị không phải số.`); continue; }
+        clean.push({idx:i+1, arr:nums});
+      }
+      if(errors.length){
+        setStatus($("fileStatus"), `<b>Lỗi định dạng:</b><br>${errors.map(e=>"- "+e).join("<br>")}`, "err");
+        $("btnPredictFile").disabled = false; return;
+      }
+
+      const results = new Array(clean.length);
+      const limit = 5; let done = 0;
+      async function worker(start){
+        for(let i=start;i<clean.length;i+=limit){
+          const [ageVal,debt,avg,score] = clean[i].arr;
+          const payloadObj = { age: ageVal, total_debt: debt, avg_amount: avg, credit_score: score };
+          const payloadList = buildApiList(ageVal, debt, avg, score);
+          const r = await callPredictionAPISmart(payloadObj, payloadList);
+          results[i] = r.ok ? {msg:r.msg,name:r.name,hint:r.hint} : {msg:`Lỗi: ${r.msg}`,name:"",hint:""};
+          done++; const pct = Math.round(done*100/clean.length);
+          $("progressBar").style.width = pct+"%"; $("progressText").textContent = pct+"%";
+        }
+      }
+      const workers = []; for(let w=0;w<Math.min(limit,clean.length);w++) workers.push(worker(w));
+      await Promise.all(workers);
+
+      setStatus($("fileStatus"), `✅ Hoàn tất dự đoán ${clean.length} dòng.`, "ok");
+      $("btnPredictFile").disabled = false; $("btnDownloadFile").disabled = false;
+
+      const tbl=document.createElement("table");
+      tbl.innerHTML=`<thead><tr>
+        <th>#</th><th>age</th><th>total_debt</th><th>avg_amount</th><th>credit_score</th>
+        <th>Kết quả</th><th>Tên cụm mô tả</th><th>Gợi ý hành động</th>
+      </tr></thead><tbody></tbody>`;
+      const tbody=tbl.querySelector("tbody");
+      clean.slice(0,1000).forEach((r,i)=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML=`<td>${r.idx}</td><td>${r.arr[0]}</td><td>${r.arr[1]}</td><td>${r.arr[2]}</td><td>${r.arr[3]}</td>
+                      <td>${results[i].msg}</td><td>${results[i].name}</td><td>${results[i].hint}</td>`;
+        tbody.appendChild(tr);
+      });
+      $("tableWrapFile").innerHTML=""; $("tableWrapFile").appendChild(tbl);
+
+      const header=["age","total_debt","avg_amount","credit_score","prediction","cluster_name","action_hint"];
+      const rows = clean.map((r,i)=>[r.arr[0],r.arr[1],r.arr[2],r.arr[3],results[i].msg,results[i].name,results[i].hint]);
+      fileCSV = [header.join(",")].concat(rows.map(r=>r.map(csvEscape).join(","))).join("\n");
+    });
+
+    $("btnDownloadFile").addEventListener("click", ()=>{
+      if(!fileCSV) return;
+      const blob = new Blob([withBOM(fileCSV)], {type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href=url; a.download="ket_qua_du_doan.csv";
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
