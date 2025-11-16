@@ -35,8 +35,8 @@ Dự án áp dụng **Big Data, Machine Learning và Cloud Computing** để ph�
 
 ---
 
-## 📌 Kết quả dự kiến
-- Bức tranh phân khúc khách hàng dựa trên dữ liệu tín dụng.  
+## 📌 Kết quả
+- Bức tranh phân khúc khách hàng: các mức độ tài chính khác nhau giữa các độ tuổi.  
 - Mô hình dự đoán phân khúc khách hàng mới chính xác và dễ triển khai.  
 - Website tích hợp API, hỗ trợ doanh nghiệp ra quyết định kinh doanh nhanh chóng và tự động.  
 
